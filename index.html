@@ -803,14 +803,6 @@ function renderWishes() {
   dCard.style.setProperty('--rot', '0deg');
   dCard.innerHTML = `<div class="wish-name">${escapeHTML(defaultWish.name)}</div><div class="wish-text">"${escapeHTML(defaultWish.text)}"</div>`;
   board.appendChild(dCard);
-  
-  wishes.forEach((w, i) => {
-    const card = document.createElement('div');
-    card.className = 'wish-card';
-    card.style.setProperty('--rot', `${((i * 7) % 9) - 4}deg`);
-    card.innerHTML = `<div class="wish-name">${escapeHTML(w.name)}</div><div class="wish-text">"${escapeHTML(w.text)}"</div>`;
-    board.appendChild(card);
-  });
 }
 
 // Global callback for Firebase to update wishes
@@ -834,12 +826,10 @@ function postWish() {
   
   const newWish = { name: n, text: t, timestamp: Date.now() };
   
-  // Update local UI immediately for instant responsiveness
   wishes.unshift(newWish);
   try {
     localStorage.setItem('wishes_mm_2026', JSON.stringify(wishes));
   } catch (e) {}
-  renderWishes();
 
   // If Firebase module is loaded, push to Firebase in the background
   if (typeof window.saveWishToFirebase === 'function') {
