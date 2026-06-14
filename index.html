@@ -1218,17 +1218,6 @@ function toggleWardrobe(){
 }
 
 /* ═══ WISHES (GUESTBOOK) ═══ */
-// Firebase Database integration placeholder. We will wire this up step-by-step with you!
-// Once ready, we will initialize Firebase here and fetch/push from the Realtime Database / Firestore.
-/*
-  // Example Firebase SDK configuration (for next step):
-  // import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-  // import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
-  // const firebaseConfig = { ... };
-  // const app = initializeApp(firebaseConfig);
-  // const db = getDatabase(app);
-*/
-
 let wishes = [];
 try {
   wishes = JSON.parse(localStorage.getItem('wishes_mm_2026') || '[]');
@@ -1265,6 +1254,15 @@ function renderWishes() {
   });
 }
 
+// Global callback for Firebase to update wishes
+window.updateWishesFromFirebase = function(wishesList) {
+  wishes = wishesList;
+  try {
+    localStorage.setItem('wishes_mm_2026', JSON.stringify(wishes));
+  } catch (e) {}
+  renderWishes();
+};
+
 function postWish() {
   const n = document.getElementById('wish-name-input').value.trim();
   const t = document.getElementById('wish-text-input').value.trim();
@@ -1277,32 +1275,21 @@ function postWish() {
   
   const newWish = { name: n, text: t, timestamp: Date.now() };
   
-  // Local storage fallback for testing
+  // Update local UI immediately for instant responsiveness
   wishes.unshift(newWish);
   try {
     localStorage.setItem('wishes_mm_2026', JSON.stringify(wishes));
   } catch (e) {}
-  
-  /* 
-    // STEP-BY-STEP FIREBASE DB WRITE (for next step):
-    // push(ref(db, 'wishes'), newWish);
-  */
+  renderWishes();
+
+  // If Firebase module is loaded, push to Firebase in the background
+  if (typeof window.saveWishToFirebase === 'function') {
+    window.saveWishToFirebase(newWish);
+  }
   
   document.getElementById('wish-name-input').value = '';
   document.getElementById('wish-text-input').value = '';
-  renderWishes();
 }
-
-// STEP-BY-STEP FIREBASE DB READ (for next step):
-/*
-  onValue(ref(db, 'wishes'), (snapshot) => {
-    const data = snapshot.val();
-    if(data) {
-      wishes = Object.values(data).reverse();
-      renderWishes();
-    }
-  });
-*/
 
 /* ═══ RSVP ═══ */
 function rsvpYes() {
@@ -1355,6 +1342,54 @@ function initScrollReveal(){
   document.querySelectorAll('.reveal-section').forEach(s=>obs.observe(s));
   const ending=document.getElementById('cinematic-ending');if(ending)pauseObs.observe(ending);
 }
+</script>
+
+<!-- ═══ FIREBASE INTEGRATION ═══ -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyA6yfIAPg8h7YMckq6YxHlqjCGV9JC08oE",
+    authDomain: "malak-moahmed-engagement.firebaseapp.com",
+    projectId: "malak-moahmed-engagement",
+    storageBucket: "malak-moahmed-engagement.firebasestorage.app",
+    messagingSenderId: "112541696084",
+    appId: "1:112541696084:web:2e9a8576323d8293402dc1"
+  };
+
+  try {
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const wishesCollection = collection(db, 'wishes');
+
+    // Realtime listener for wishes ordered by timestamp descending
+    const q = query(wishesCollection, orderBy("timestamp", "desc"));
+    onSnapshot(q, (snapshot) => {
+      const wishesList = [];
+      snapshot.forEach((doc) => {
+        wishesList.push(doc.data());
+      });
+      
+      // Update the global wishes array and trigger render
+      if (typeof window.updateWishesFromFirebase === 'function') {
+        window.updateWishesFromFirebase(wishesList);
+      }
+    }, (error) => {
+      console.error("Firestore read error:", error);
+    });
+
+    // Expose push function to global scope
+    window.saveWishToFirebase = function(newWish) {
+      addDoc(wishesCollection, newWish).catch(err => {
+        console.error("Firestore write error:", err);
+      });
+    };
+  } catch (error) {
+    console.error("Firebase initialization failed:", error);
+  }
 </script>
 </body>
 </html>
